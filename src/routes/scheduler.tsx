@@ -47,7 +47,6 @@ function SchedulerPage() {
   const queues = useQuery(queuesQuery); 
  
   const invalidate = () => qc.invalidateQueries({ queryKey: ["engine"] }); 
- 
   const policy = useMutation({ 
     mutationFn: (p: string) => setPolicy({ policy: p }), 
     onSuccess: (res) => { 
@@ -209,5 +208,4 @@ function Metric({ label, value }: { label: string; value: string }) {
       <span className="font-medium">{value}</span> 
     </div> 
   ); 
-} 
-ye hai to kya daalu
+}
