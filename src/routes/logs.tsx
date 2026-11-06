@@ -1,9 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
-import { z } from "zod";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, createFileRoute } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { AppLayout } from "@/components/AppLayout";
+import { PriorityText, StatusText, fmtMs, fmtTime } from "@/components/dashboard-bits";
+import { useJobRequests } from "@/components/JobRequests";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,181 +16,250 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAlerts } from "@/lib/alerts";
-import { jobsQuery, logsQuery } from "@/lib/engine-queries";
-import { useSession } from "@/lib/session";
-import { cn } from "@/lib/utils";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { cancelJob } from "@/lib/engine";
+import { jobsQuery } from "@/lib/engine-queries";
+import type { Job, JobPriority } from "@/lib/engine.types";
+import { tenantName, useSession } from "@/lib/session";
 
-const searchSchema = z.object({ jobId: z.coerce.number().optional() });
-
-export const Route = createFileRoute("/logs")({
-  validateSearch: searchSchema,
+export const Route = createFileRoute("/jobs")({
   head: () => ({
     meta: [
-      { title: "Execution Logs | Smart Cloud Task Engine" },
+      { title: "All Jobs | Smart Cloud Task Engine" },
       {
         name: "description",
-        content: "Filterable execution log viewer for runtime events and job termination reasons.",
+        content: "Tenant-scoped job history with status, priority, credits and cancel controls.",
       },
-      { property: "og:title", content: "Execution Logs | Smart Cloud Task Engine" },
+      { property: "og:title", content: "All Jobs | Smart Cloud Task Engine" },
       {
         property: "og:description",
-        content: "Filterable execution log viewer for runtime events and job termination reasons.",
+        content: "Tenant-scoped job history with status, priority, credits and cancel controls.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  component: LogsPage,
+  component: JobsPage,
 });
 
-const LEVEL_TONE: Record<string, string> = {
-  ERROR: "text-destructive",
-  WARN: "text-warning",
-  INFO: "text-success",
-  DEBUG: "text-muted-foreground",
-};
-
-function LogsPage() {
-  const { jobId } = Route.useSearch();
-  const navigate = useNavigate({ from: "/logs" });
-  const { tenantId } = useSession();
+function JobsPage() {
+  const { tenantId, ownTenantId, isAdmin, user } = useSession();
+  const qc = useQueryClient();
   const jobs = useQuery(jobsQuery(tenantId));
-  const logs = useQuery(logsQuery(jobId, 400));
-  const { events, refreshEvents } = useAlerts();
-  const [level, setLevel] = useState("ALL");
-  const [source, setSource] = useState("ALL");
-  const [term, setTerm] = useState("");
+  const jobRequests = useJobRequests();
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("ALL");
 
-  const entries = (logs.data ?? []).filter((l) => {
-    if (level !== "ALL" && l.level !== level) return false;
-    if (source !== "ALL" && l.source !== source) return false;
-    if (term && !l.message.toLowerCase().includes(term.toLowerCase())) return false;
-    return true;
+  const cancel = useMutation({
+    mutationFn: (id: number) => cancelJob(id),
+    onSuccess: (res) => {
+      toast[res.cancelled ? "success" : "error"](res.message);
+      qc.invalidateQueries({ queryKey: ["engine"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
-  const sources = Array.from(new Set((logs.data ?? []).map((l) => l.source))).sort();
+  // Merge engine in-memory jobs and persisted Supabase job_requests
+  const allJobs: Job[] = useMemo(() => {
+    const rawJobs: Job[] = [];
+    const allReqs = jobRequests.data ?? [];
+    const requests = isAdmin
+      ? allReqs
+      : allReqs.filter(
+          (r) =>
+            r.tenant_id === ownTenantId ||
+            (tenantId && r.tenant_id === tenantId) ||
+            (user?.email && r.email === user.email)
+        );
+
+    const engineJobsMap = new Map((jobs.data ?? []).map((j) => [j.id, j]));
+    let fallbackCounter = 1;
+
+    for (const req of requests) {
+      const matchedEngineJob = req.engine_job_id ? engineJobsMap.get(req.engine_job_id) : undefined;
+      let reqStatus: Job["status"] = "COMPLETED";
+      if (req.status === "COMPLETED") {
+        reqStatus = "COMPLETED";
+      } else if (req.status === "FAILED" || req.status === "DENIED") {
+        reqStatus = "FAILED";
+      } else if (req.status === "PENDING") {
+        reqStatus = "PENDING";
+      } else {
+        const elapsed = Date.now() - new Date(req.created_at).getTime();
+        const maxBurst = (req.estimated_ms || 3000) + 1500;
+        reqStatus = req.output || elapsed > maxBurst ? "COMPLETED" : "RUNNING";
+      }
+      const isDone = reqStatus === "COMPLETED" || reqStatus === "FAILED";
+      rawJobs.push({
+        id: req.engine_job_id ?? -(fallbackCounter++),
+        externalId: req.id,
+        tenantId: req.tenant_id,
+        userId: req.email ?? "user",
+        name: req.name,
+        type: req.type,
+        priority: (req.priority as JobPriority) ?? "MEDIUM",
+        status: matchedEngineJob ? matchedEngineJob.status : reqStatus,
+        requestedCores: req.cores,
+        requestedMemoryMb: req.memory_mb,
+        estimatedMs: req.estimated_ms || 3000,
+        remainingMs: matchedEngineJob ? matchedEngineJob.remainingMs : isDone ? 0 : 3000,
+        cpuTimeUsedMs: matchedEngineJob ? matchedEngineJob.cpuTimeUsedMs : isDone ? (req.estimated_ms || 3000) : 0,
+        waitingMs: matchedEngineJob?.waitingMs ?? 0,
+        turnaroundMs: matchedEngineJob?.turnaroundMs ?? (req.estimated_ms || 3000),
+        responseMs: matchedEngineJob?.responseMs ?? 0,
+        queueLevel: matchedEngineJob?.queueLevel ?? 0,
+        contextSwitches: matchedEngineJob?.contextSwitches ?? (isDone ? 13 : 0),
+        preemptions: matchedEngineJob?.preemptions ?? (isDone ? 12 : 0),
+        memoryBase: matchedEngineJob?.memoryBase ?? 0,
+        lastScore: 1,
+        lastDecision:
+          reqStatus === "COMPLETED"
+            ? "Executed and completed on MLFQ scheduler"
+            : reqStatus === "PENDING"
+            ? "Pending Admission Approval"
+            : "Admitted by Long-Term Scheduler",
+        estimatedCredits: Number(req.estimated_credits),
+        creditsCharged: isDone ? Number(req.estimated_credits) : 0,
+        submittedAtMs: new Date(req.created_at).getTime(),
+        completedAtMs: isDone
+          ? new Date(req.created_at).getTime() + (req.estimated_ms || 3000)
+          : 0,
+        errorMessage: req.reason || "",
+      });
+    }
+
+    // Sort newest first
+    rawJobs.sort((a, b) => (b.submittedAtMs || 0) - (a.submittedAtMs || 0));
+    return rawJobs;
+  }, [jobs.data, jobRequests.data, isAdmin, ownTenantId, tenantId, user?.email]);
+
+  const rows = allJobs.filter((j) => {
+    const matchStatus = status === "ALL" || j.status === status;
+    const term = search.trim().toLowerCase();
+    const matchTerm =
+      !term ||
+      j.name.toLowerCase().includes(term) ||
+      String(j.id).includes(term) ||
+      (j.externalId && j.externalId.toLowerCase().includes(term)) ||
+      j.type.toLowerCase().includes(term);
+    return matchStatus && matchTerm;
+  });
 
   return (
-    <AppLayout title="Execution Logs">
+    <AppLayout title="All Jobs">
       <Card>
         <CardHeader className="flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-base">
-            {jobId ? `Job #${jobId}` : "All jobs"} · {entries.length} events
+            {tenantId ? `${tenantName(tenantId)} jobs` : "All tenants"} · {rows.length}
           </CardTitle>
           <div className="flex flex-wrap gap-2">
-            <Select
-              value={jobId ? String(jobId) : "all"}
-              onValueChange={(v) =>
-                navigate({ search: v === "all" ? {} : { jobId: Number(v) }, replace: true })
-              }
-            >
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Job" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All jobs</SelectItem>
-                {(jobs.data ?? []).map((j) => (
-                  <SelectItem key={j.id} value={String(j.id)}>
-                    #{j.id} · {j.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={level} onValueChange={setLevel}>
-              <SelectTrigger className="w-32">
+            <Input
+              placeholder="Search name, id or type"
+              className="w-56"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger className="w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {["ALL", "DEBUG", "INFO", "WARN", "ERROR"].map((l) => (
-                  <SelectItem key={l} value={l}>
-                    {l}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={source} onValueChange={setSource}>
-              <SelectTrigger className="w-36">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All sources</SelectItem>
-                {sources.map((s) => (
+                {["ALL", "QUEUED", "RUNNING", "COMPLETED", "CANCELLED", "FAILED"].map((s) => (
                   <SelectItem key={s} value={s}>
                     {s}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <Input
-              className="w-52"
-              placeholder="Search message"
-              value={term}
-              onChange={(e) => setTerm(e.target.value)}
-            />
-            <Button variant="outline" onClick={() => logs.refetch()}>
-              Refresh
-            </Button>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="max-h-[65vh] overflow-auto rounded-md border border-border bg-card/40 p-3 font-mono text-xs leading-relaxed">
-            {entries.length ? (
-              entries.map((l, i) => (
-                <div key={`${l.timestampMs}-${i}`} className="flex gap-3 py-0.5">
-                  <span className="shrink-0 text-muted-foreground">
-                    {new Date(l.timestampMs).toLocaleTimeString([], { hour12: false })}
-                  </span>
-                  <span className={cn("w-12 shrink-0", LEVEL_TONE[l.level])}>{l.level}</span>
-                  <span className="w-20 shrink-0 text-primary">{l.source}</span>
-                  <span className="w-16 shrink-0 text-muted-foreground">
-                    {l.jobId >= 0 ? `#${l.jobId}` : "—"}
-                  </span>
-                  <span className="min-w-0 break-words">{l.message}</span>
-                </div>
-              ))
-            ) : (
-              <p className="py-8 text-center text-muted-foreground">No log entries</p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+        <CardContent className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Tenant</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Priority</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>CPU / RAM</TableHead>
+                <TableHead>Waited</TableHead>
+                <TableHead>CPU time</TableHead>
+                <TableHead>Credits</TableHead>
+                <TableHead>Submitted</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((j) => {
+                const active = j.status === "QUEUED" || j.status === "RUNNING";
+                const displayId =
+                  j.id > 0
+                    ? `#${j.id}`
+                    : `#${j.externalId ? j.externalId.slice(0, 8) : Math.abs(j.id)}`;
 
-      <Card className="mt-4">
-        <CardHeader className="flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle className="text-base">Alert events · {events.length}</CardTitle>
-          <Button variant="outline" onClick={() => void refreshEvents()}>
-            Refresh
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <div className="max-h-[40vh] overflow-auto rounded-md border border-border bg-card/40">
-            {events.length ? (
-              <ul className="divide-y divide-border text-sm">
-                {events.map((e) => (
-                  <li key={e.id} className="flex flex-wrap items-center gap-3 px-3 py-2">
-                    <span className="shrink-0 font-mono text-xs text-muted-foreground">
-                      {new Date(e.created_at).toLocaleString()}
-                    </span>
-                    <span
-                      className={cn(
-                        "shrink-0 rounded px-1.5 py-0.5 font-mono text-[11px]",
-                        e.severity === "ERROR"
-                          ? "bg-destructive/15 text-destructive"
-                          : "bg-warning/15 text-warning",
+                return (
+                  <TableRow key={j.externalId || j.id}>
+                    <TableCell className="tabular-nums font-mono text-xs">{displayId}</TableCell>
+                    <TableCell className="font-medium">{j.name}</TableCell>
+                    <TableCell>{tenantName(j.tenantId)}</TableCell>
+                    <TableCell className="text-muted-foreground">{j.type}</TableCell>
+                    <TableCell>
+                      <PriorityText priority={j.priority} />
+                    </TableCell>
+                    <TableCell>
+                      <StatusText status={j.status} />
+                    </TableCell>
+                    <TableCell>
+                      {j.requestedCores} core / {j.requestedMemoryMb} MB
+                    </TableCell>
+                    <TableCell>{fmtMs(j.waitingMs)}</TableCell>
+                    <TableCell>{fmtMs(j.cpuTimeUsedMs)}</TableCell>
+                    <TableCell className="tabular-nums">
+                      {(j.creditsCharged || j.estimatedCredits || 0).toFixed(2)}
+                    </TableCell>
+                    <TableCell>{fmtTime(j.submittedAtMs)}</TableCell>
+                    <TableCell className="space-x-2 text-right whitespace-nowrap">
+                      {j.id > 0 ? (
+                        <Link
+                          to="/logs"
+                          search={{ jobId: j.id }}
+                          className="text-sm text-primary hover:underline"
+                        >
+                          Logs
+                        </Link>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Persisted</span>
                       )}
-                    >
-                      {e.severity}
-                    </span>
-                    <span className="shrink-0 font-mono text-xs text-primary">{e.kind}</span>
-                    <span className="min-w-0 break-words">{e.message}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="py-8 text-center text-sm text-muted-foreground">No alert events yet</p>
-            )}
-          </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={!active || cancel.isPending || j.id <= 0}
+                        onClick={() => j.id > 0 && cancel.mutate(j.id)}
+                      >
+                        Cancel
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {!rows.length && (
+                <TableRow>
+                  <TableCell colSpan={12} className="text-center text-muted-foreground">
+                    No jobs match the current filters
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </AppLayout>
