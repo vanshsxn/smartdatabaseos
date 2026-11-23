@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +16,6 @@ import { Switch } from "@/components/ui/switch";
 import { useAlerts } from "@/lib/alerts";
 import { healthQuery, resourcesQuery } from "@/lib/engine-queries";
 import { tenantName, useSession } from "@/lib/session";
-
 export const Route = createFileRoute("/settings")({
   head: () => ({
     meta: [
@@ -37,7 +35,6 @@ export const Route = createFileRoute("/settings")({
   }),
   component: SettingsPage,
 });
-
 function SettingsPage() {
   const { user, ownTenantId, isAdmin, signOut } = useSession();
   const health = useQuery(healthQuery);
