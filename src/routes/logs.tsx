@@ -21,8 +21,7 @@ import {
   TableBody,
   TableCell,
   TableHead,
-  TableHeader,
-  TableRow,
+  TableHeader,TableRow,
 } from "@/components/ui/table";
 import { cancelJob } from "@/lib/engine";
 import { jobsQuery } from "@/lib/engine-queries";
