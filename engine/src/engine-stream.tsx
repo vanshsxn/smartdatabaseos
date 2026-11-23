@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
+
 import type { Health, Job, Metrics, Resources, TenantCredit } from "./engine.types";
 
 export interface EngineSnapshot {
