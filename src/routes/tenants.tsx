@@ -4,7 +4,6 @@ import { useServerFn } from "@tanstack/react-start";
 import { Sparkles } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-
 import { AppLayout } from "@/components/AppLayout";
 import { JobRequestList } from "@/components/JobRequests";
 import { Button } from "@/components/ui/button";
@@ -16,9 +15,9 @@ import { explainBilling } from "@/lib/billing-insights.functions";
 import { setCredits } from "@/lib/engine";
 import { jobsQuery, logsQuery, tenantCreditsQuery } from "@/lib/engine-queries";
 import { useSession } from "@/lib/session";
-
 export const Route = createFileRoute("/tenants")({
-  head: () => ({
+  head: () => (
+    {
     meta: [
       { title: "Tenants | Smart Cloud Task Engine" },
       { name: "description", content: "Admin view of tenant credit pools, job history and AI billing explanations." },
@@ -29,8 +28,8 @@ export const Route = createFileRoute("/tenants")({
     ],
   }),
   component: TenantsPage,
-});
-
+}
+);
 function TenantsPage() {
   const { isAdmin, tenants } = useSession();
   const qc = useQueryClient();
