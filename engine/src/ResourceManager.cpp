@@ -1,9 +1,7 @@
 #include "ResourceManager.h"
 
 #include <sstream>
-
 namespace mvcc {
-
 ResourceManager::ResourceManager(int cores, MemoryManager* memory)
     : totalCores_(cores), memory_(memory) {}
 
