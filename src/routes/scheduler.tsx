@@ -53,9 +53,8 @@ function SchedulerPage() {
       toast.success(`Policy set to ${res.policy}`); 
       invalidate(); 
     }, 
-    onError: (e: Error) => toast.error(e.message), 
+    onError: (:eError) => toast.error(e.message), 
   }); 
- 
   const pause = useMutation({ 
     mutationFn: (p: boolean) => setEnginePaused(p), 
     onSuccess: (res) => { 
@@ -64,10 +63,9 @@ function SchedulerPage() {
     }, 
     onError: (e: Error) => toast.error(e.message), 
   }); 
+  const paused=health.data?.paused ?? false; 
  
-  const paused = health.data?.paused ?? false; 
- 
-  return ( 
+  return( 
     <AppLayout title="Scheduler"> 
       <div className="grid gap-4 lg:grid-cols-3"> 
         <Card> 
