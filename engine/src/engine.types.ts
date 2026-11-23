@@ -1,7 +1,6 @@
 export type JobPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 export type JobStatus = "PENDING" | "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED";
 
-
 export interface Job {
   id: number;
   externalId: string;
