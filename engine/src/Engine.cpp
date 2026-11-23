@@ -6,9 +6,7 @@
 #include <thread>
 
 #include "Logger.h"
-
 namespace mvcc {
-
 Engine::Engine(EngineConfig cfg)
     : cfg_(std::move(cfg)),
       memory_(cfg_.memoryMb),
