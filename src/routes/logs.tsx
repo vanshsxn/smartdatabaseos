@@ -27,7 +27,8 @@ import { jobsQuery } from "@/lib/engine-queries";
 import type { Job, JobPriority } from "@/lib/engine.types";
 import { tenantName, useSession } from "@/lib/session";
 export const Route = createFileRoute("/jobs")({
-  head: () => ({
+  head: () => (
+    {
     meta: [
       { title: "All Jobs | Smart Cloud Task Engine" },
       {
