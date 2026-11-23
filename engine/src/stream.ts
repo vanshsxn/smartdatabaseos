@@ -3,7 +3,7 @@ import { resolveCaller } from "@/lib/engine-auth.server";
 
 // Server-push telemetry stream. The dashboard opens a single persistent
 // connection and the server pushes an engine snapshot every tick, so the
-// charts update continuously without client 
+// charts update continuously 
 export const Route = createFileRoute("/api/engine/stream")({
   server: {
     handlers: {
