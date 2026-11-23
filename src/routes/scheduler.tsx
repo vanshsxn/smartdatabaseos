@@ -37,7 +37,8 @@ export const Route = createFileRoute("/scheduler")({
   }), 
   component: SchedulerPage, 
 }); 
- 
+
+
 function SchedulerPage() { 
   const qc = useQueryClient(); 
   const { isAdmin } = useSession(); 
