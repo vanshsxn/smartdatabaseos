@@ -17,7 +17,6 @@ import {
 import { setEnginePaused, setPolicy } from "@/lib/engine"; 
 import { healthQuery, metricsQuery, queuesQuery } from "@/lib/engine-queries"; 
 import { useSession } from "@/lib/session"; 
- 
 export const Route = createFileRoute("/scheduler")({ 
   head: () => ({ 
     meta: [ 
