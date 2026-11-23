@@ -5,7 +5,6 @@ import type { ReactNode } from "react";
 
 import type { Health, Job, Metrics, Resources, TenantCredit } from "./engine.types";
 
-
 export interface EngineSnapshot {
   ts: number;
   online: boolean;
