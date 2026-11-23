@@ -13,7 +13,6 @@ import { useEngineStream } from "@/lib/engine-stream";
 import type { Job } from "@/lib/engine.types";
 import { decideJob } from "@/lib/job-requests.functions";
 import { tenantName } from "@/lib/session";
-
 export interface JobRequestRow {
   id: string;
   tenant_id: string;
@@ -145,4 +144,5 @@ export function LiveJob({ job }: { job: Job }) {
       )}
     </div>
   );
+
 }
