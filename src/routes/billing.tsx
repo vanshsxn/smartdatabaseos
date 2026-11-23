@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Coins, Receipt, Wallet } from "lucide-react";
-
 import { AppLayout } from "@/components/AppLayout";
 import { StatCard, fmtMs, fmtTime } from "@/components/dashboard-bits";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,9 +14,9 @@ import {
 } from "@/components/ui/table";
 import { jobsQuery, tenantCreditsQuery } from "@/lib/engine-queries";
 import { tenantName, useSession } from "@/lib/session";
-
 export const Route = createFileRoute("/billing")({
-  head: () => ({
+  head: () => (
+    {
     meta: [
       { title: "Billing | Smart Cloud Task Engine" },
       {
@@ -34,7 +33,8 @@ export const Route = createFileRoute("/billing")({
     ],
   }),
   component: BillingPage,
-});
+}
+);
 
 function BillingPage() {
   const { tenantId } = useSession();
