@@ -1,8 +1,8 @@
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-
 import { AppLayout } from "@/components/AppLayout";
 import { PriorityText, StatusText, fmtMs, fmtTime } from "@/components/dashboard-bits";
 import { useJobRequests } from "@/components/JobRequests";
@@ -27,7 +27,6 @@ import { cancelJob } from "@/lib/engine";
 import { jobsQuery } from "@/lib/engine-queries";
 import type { Job, JobPriority } from "@/lib/engine.types";
 import { tenantName, useSession } from "@/lib/session";
-
 export const Route = createFileRoute("/jobs")({
   head: () => ({
     meta: [
@@ -47,7 +46,6 @@ export const Route = createFileRoute("/jobs")({
   }),
   component: JobsPage,
 });
-
 function JobsPage() {
   const { tenantId, ownTenantId, isAdmin, user } = useSession();
   const qc = useQueryClient();
@@ -77,10 +75,8 @@ function JobsPage() {
             (tenantId && r.tenant_id === tenantId) ||
             (user?.email && r.email === user.email)
         );
-
     const engineJobsMap = new Map((jobs.data ?? []).map((j) => [j.id, j]));
     let fallbackCounter = 1;
-
     for (const req of requests) {
       const matchedEngineJob = req.engine_job_id ? engineJobsMap.get(req.engine_job_id) : undefined;
       let reqStatus: Job["status"] = "COMPLETED";
