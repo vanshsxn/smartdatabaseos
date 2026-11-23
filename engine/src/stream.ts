@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { resolveCaller } from "@/lib/engine-auth.server";
 
 // Server-push telemetry stream. The dashboard opens a single persistent
-//
 export const Route = createFileRoute("/api/engine/stream")({
   server: {
     handlers: {
