@@ -4,7 +4,6 @@
 #include <sstream>
 
 namespace mvcc {
-
 MemoryManager::MemoryManager(long long totalMb) : totalMb_(totalMb) {
     blocks_.push_back(MemoryBlock{0, totalMb, true, -1, ""});
 }
@@ -16,7 +15,6 @@ long long MemoryManager::allocate(long long sizeMb, long long jobId, const std::
         detail = "invalid allocation size";
         return -1;
     }
-
     // BEST FIT: smallest free block that is still large enough.
     int bestIndex = -1;
     long long bestSize = 0;
