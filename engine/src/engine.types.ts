@@ -6,6 +6,7 @@ export type JobStatus = "PENDING" | "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED
 
 
 
+
 export interface Job {
   id: number;
   externalId: string;
