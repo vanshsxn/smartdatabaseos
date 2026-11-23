@@ -45,7 +45,8 @@ export const Route = createFileRoute("/jobs")({
     ],
   }),
   component: JobsPage,
-});
+}
+);
 function JobsPage() {
   const { tenantId, ownTenantId, isAdmin, user } = useSession();
   const qc = useQueryClient();
