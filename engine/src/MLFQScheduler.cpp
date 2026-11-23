@@ -15,7 +15,6 @@ static int levelForPriority(Priority p) {
     }
     return 2;
 }
-
 int MLFQScheduler::timeQuantumMs(int level) const {
     static const int quanta[kLevels] = {40, 80, 160, 320};
     if (level < 0) level = 0;
