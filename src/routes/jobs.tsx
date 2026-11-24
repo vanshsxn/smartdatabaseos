@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-
 import { AppLayout } from "@/components/AppLayout";
 import { PriorityText, StatusText, fmtMs, fmtTime } from "@/components/dashboard-bits";
 import { useJobRequests } from "@/components/JobRequests";
@@ -48,7 +47,6 @@ export const Route = createFileRoute("/jobs")({
   }),
   component: JobsPage,
 });
-
 function JobsPage() {
   const { tenantId, ownTenantId, isAdmin, user } = useSession();
   const qc = useQueryClient();
