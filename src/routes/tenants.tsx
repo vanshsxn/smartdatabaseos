@@ -42,7 +42,9 @@ function TenantsPage() {
   const [answer, setAnswer] = useState("");
   const explain = useServerFn(explainBilling);
 
-  const save = useMutation({
+  
+  const save = useMutation(
+    {
     mutationFn: (v: { tenantId: string; credits: number }) => setCredits(v),
     onSuccess: (res) => {
       toast.success(`${res.tenantId} set to ${res.credits} credits`);
@@ -99,7 +101,7 @@ function TenantsPage() {
     );
   }
 
-  return (
+  return(
     <AppLayout title="Tenants">
       <div className="space-y-4">
         <Card>
