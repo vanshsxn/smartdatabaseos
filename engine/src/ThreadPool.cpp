@@ -7,7 +7,6 @@ thread_local int t_workerIndex = -1;
 }
 
 int ThreadPool::currentWorkerIndex() { return t_workerIndex; }
-
 ThreadPool::ThreadPool(size_t workers) {
     if (workers == 0) workers = 1;
     workers_.reserve(workers);
