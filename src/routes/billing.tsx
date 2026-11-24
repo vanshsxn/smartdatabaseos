@@ -41,6 +41,7 @@ function BillingPage() {
   const jobs = useQuery(jobsQuery(tenantId));
   const credits = useQuery(tenantCreditsQuery);
 
+  
   const rows = (jobs.data ?? []).filter((j) => j.creditsCharged > 0 || j.estimatedCredits > 0);
   const charged = rows.reduce((s, j) => s + (j.creditsCharged || 0), 0);
   const pending = rows.reduce(
