@@ -63,7 +63,6 @@ function JobsPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
-
   // Merge engine in-memory jobs and persisted Supabase job_requests
   const allJobs: Job[] = useMemo(() => {
     const rawJobs: Job[] = [];
